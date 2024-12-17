@@ -10,13 +10,10 @@ trait ReadTransformWritePipeline[Context <: TypedMap] extends OperationContextPr
 
   def onReadStage[A, B, C](
     processor: FalliblePreProcessor[A, B, Context]
-  )(block: A => C)(implicit metadataProvider: MetadataProvider[Context]): FalliblePipelineBlock[C] = {
+  )(block: A => C)(using MetadataProvider[Context]): FalliblePipelineBlock[C] = {
     obtainResultFromPreProcessorInOperationContext(processor) match {
       case Right(value) => new FallibleReadPipelineBlock(value)(block)
-      case Left(error) =>
-        val metadata            = metadataProvider.getMetadata
-        val metadataWithFailure = metadata.+(RTWMetadataKeys.FailedPipelineBlockErrorValue -> error)
-        new FailedPipelineBlock(metadataWithFailure)
+      case Left(error)  => buildFailedBlock(error)
     }
   }
 
@@ -26,49 +23,41 @@ trait ReadTransformWritePipeline[Context <: TypedMap] extends OperationContextPr
 
   def onWriteStage[A, B, C](
     processor: FalliblePreProcessor[A, B, Context]
-  )(block: A => C)(implicit metadataProvider: MetadataProvider[Context]): FalliblePipelineBlock[C] = {
+  )(block: A => C)(using MetadataProvider[Context]): FalliblePipelineBlock[C] = {
     obtainResultFromPreProcessorInOperationContext(processor) match {
       case Right(value) =>
         new FallibleWritePipelineBlock(value)(block)
-      case Left(error) =>
-        val metadata            = metadataProvider.getMetadata
-        val metadataWithFailure = metadata.+(RTWMetadataKeys.FailedPipelineBlockErrorValue -> error)
-        new FailedPipelineBlock(metadataWithFailure)
+      case Left(error) => buildFailedBlock(error)
     }
   }
 
-  def onTransformStage[A]()(block: => A): PipelineBlock[A]              = new TransformPipelineBlock[Unit, A](())(_ => block)
+  def onTransformStage[A]()(block: => A): PipelineBlock[A] = new TransformPipelineBlock[Unit, A](())(_ => block)
+
   def onTransformStage[A, B](value: A)(block: A => B): PipelineBlock[B] = new TransformPipelineBlock[A, B](value)(block)
 
   def onTransformStage[A, B, C](
     processor: FalliblePreProcessor[A, B, Context]
-  )(block: A => C)(implicit metadataProvider: MetadataProvider[Context]): FalliblePipelineBlock[C] = {
+  )(block: A => C)(using MetadataProvider[Context]): FalliblePipelineBlock[C] = {
     obtainResultFromPreProcessorInOperationContext(processor) match {
       case Right(value) =>
         new FallibleTransformPipelineBlock(value)(block)
-      case Left(error) =>
-        val metadata            = metadataProvider.getMetadata
-        val metadataWithFailure = metadata.+(RTWMetadataKeys.FailedPipelineBlockErrorValue -> error)
-        new FailedPipelineBlock(metadataWithFailure)
+      case Left(error) => buildFailedBlock(error)
     }
   }
 
   def onNestedStage[A, B, C](processor: FalliblePreProcessor[A, B, Context])(
     block: A => FalliblePipelineBlock[C]
-  )(implicit metadataProvider: MetadataProvider[Context]): FalliblePipelineBlock[C] = {
+  )(using MetadataProvider[Context]): FalliblePipelineBlock[C] = {
     obtainResultFromPreProcessorInOperationContext(processor) match {
       case Right(value) => block(value)
-      case Left(error) =>
-        val metadata: Context   = metadataProvider.getMetadata
-        val metadataWithFailure = metadata.+(RTWMetadataKeys.FailedPipelineBlockErrorValue -> error)
-        new FailedPipelineBlock(metadataWithFailure)
+      case Left(error)  => buildFailedBlock(error)
     }
   }
 
-  private def obtainResultFromPreProcessorInOperationContext[A, B, C](
-    processor: FalliblePreProcessor[A, B, C]
-  )(implicit metadataProvider: MetadataProvider[C]): Either[B, A] = {
-    implicit val context: C = metadataProvider.getMetadata
+  private def obtainResultFromPreProcessorInOperationContext[A, B](
+    processor: FalliblePreProcessor[A, B, Context]
+  )(using metadataProvider: MetadataProvider[Context]): Either[B, A] = {
+    given context: Context = metadataProvider.getMetadata
     if (processor.writeEnabled) {
       withinWriteContext {
         processor.tryPreProcessing
@@ -80,6 +69,14 @@ trait ReadTransformWritePipeline[Context <: TypedMap] extends OperationContextPr
     } else {
       processor.tryPreProcessing
     }
+  }
+
+  private def buildFailedBlock(
+    error: Any
+  )(using metadataProvider: MetadataProvider[Context]): FailedPipelineBlock[Nothing] = {
+    val metadata            = metadataProvider.getMetadata
+    val metadataWithFailure = metadata.+(RTWMetadataKeys.FailedPipelineBlockErrorValue -> error)
+    new FailedPipelineBlock(metadataWithFailure)
   }
 
 }

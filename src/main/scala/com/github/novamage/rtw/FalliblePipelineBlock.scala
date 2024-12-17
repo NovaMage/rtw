@@ -4,9 +4,7 @@ import com.github.novamage.typedmap.TypedMap
 
 trait FalliblePipelineBlock[+A] {
 
-  def intoWriteStage[B](
-    block: A => B
-  )(implicit operationContextProvider: OperationContextProvider): FalliblePipelineBlock[B] = {
+  def intoWriteStage[B](block: A => B)(using OperationContextProvider): FalliblePipelineBlock[B] = {
     if (this.failed) {
       new FailedPipelineBlock[B](this.failedMetadata)
     } else {
@@ -14,9 +12,7 @@ trait FalliblePipelineBlock[+A] {
     }
   }
 
-  def intoTransformStage[B](
-    block: A => B
-  )(implicit operationContextProvider: OperationContextProvider): FalliblePipelineBlock[B] = {
+  def intoTransformStage[B](block: A => B)(using OperationContextProvider): FalliblePipelineBlock[B] = {
     if (this.failed) {
       new FailedPipelineBlock[B](this.failedMetadata)
     } else {
@@ -46,6 +42,7 @@ trait FalliblePipelineBlock[+A] {
 
   protected def failedMetadata: TypedMap = TypedMap.empty
 
+  // noinspection ScalaWeakerAccess
   protected final def metadataAtTimeOfFailure: TypedMap = if (failed) {
     failedMetadata
   } else {
@@ -62,7 +59,7 @@ trait FalliblePipelineBlock[+A] {
 
   }
 
-  private def wrapBuildOrExecuteFailed[B](block: => B)(implicit failedResultBuilder: FailedResultBuilder[B]): B = {
+  private def wrapBuildOrExecuteFailed[B](block: => B)(using failedResultBuilder: FailedResultBuilder[B]): B = {
     if (failed) {
       failedResultBuilder.buildFailure(metadataAtTimeOfFailure)
     } else {
@@ -71,22 +68,19 @@ trait FalliblePipelineBlock[+A] {
   }
 
   def build[B, C](
-    implicit metadataProvider: MetadataProvider[C],
-    resultBuilder: ResultBuilder[A, C, B],
-    failedResultBuilder: FailedResultBuilder[B],
-    operationContextProvider: OperationContextProvider
+    using MetadataProvider[C],
+    ResultBuilder[A, C, B],
+    FailedResultBuilder[B],
+    OperationContextProvider
   ): B = {
     wrapBuildOrExecuteFailed {
       wrappedPipelineBlock.build
     }
   }
 
-  def build[B, C, D](converter: A => B)(
-    implicit metadataProvider: MetadataProvider[D],
-    resultBuilder: ResultBuilder[B, D, C],
-    failedResultBuilder: FailedResultBuilder[C],
-    operationContextProvider: OperationContextProvider
-  ): C = {
+  def build[B, C, D](
+    converter: A => B
+  )(using MetadataProvider[D], ResultBuilder[B, D, C], FailedResultBuilder[C], OperationContextProvider): C = {
     wrapBuildOrExecuteFailed {
       wrappedPipelineBlock.build(converter)
     }
