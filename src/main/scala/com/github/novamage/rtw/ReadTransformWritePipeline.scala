@@ -45,9 +45,9 @@ trait ReadTransformWritePipeline[Context <: TypedMap] extends OperationContextPr
     }
   }
 
-  def onNestedStage[A, B, C](processor: FalliblePreProcessor[A, B, Context])(
-    block: A => FalliblePipelineBlock[C]
-  )(using MetadataProvider[Context]): FalliblePipelineBlock[C] = {
+  def onNestedStage[A, B, C](
+    processor: FalliblePreProcessor[A, B, Context]
+  )(block: A => FalliblePipelineBlock[C])(using MetadataProvider[Context]): FalliblePipelineBlock[C] = {
     obtainResultFromPreProcessorInOperationContext(processor) match {
       case Right(value) => block(value)
       case Left(error)  => buildFailedBlock(error)
