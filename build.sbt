@@ -6,35 +6,19 @@ name := "RTW"
 
 description := "A library for separation of reads and writes in pipeline-style stages"
 
-scalaVersion := "2.13.12"
+scalaVersion := "3.3.4"
 
 licenses := Seq("MIT" -> url("https://github.com/NovaMage/rtw/blob/main/LICENSE.txt"))
 
 homepage := Some(url("https://github.com/NovaMage/rtw"))
 
-javacOptions := Seq("-source", "1.8", "-target", "1.8")
-
-scalacOptions ++= Seq(
-  "-Xsource:3",
-  "-deprecation",
-  "-encoding",
-  "UTF-8",
-  "-feature",
-  "-unchecked",
-  "-explaintypes",
-  "-Xlint",
-  "-Wunused",
-  "-Wdead-code",
-  "-Werror",
-)
+scalacOptions ++= Seq("--deprecation", "--encoding", "UTF-8", "--feature", "--unchecked", "-Wunused:all", "-Werror")
 
 scalafixOnCompile := true
 
 inThisBuild(
   List(
-    semanticdbEnabled          := true,                        // enable SemanticDB
-    semanticdbVersion          := scalafixSemanticdb.revision, // only required for Scala 2.x
-    scalafixScalaBinaryVersion := "2.13"
+    semanticdbEnabled := true, // enable SemanticDB
   )
 )
 
@@ -79,11 +63,11 @@ exportJars := true
 
 Test / parallelExecution := false
 
-libraryDependencies += "com.github.novamage" %% "typed-map" % "1.0.0-alpha.1"
+libraryDependencies += "com.github.novamage" %% "typed-map" % "1.0.0-alpha.2"
 
-libraryDependencies += "org.scalatest"     %% "scalatest"         % "3.2.16"   % Test
-libraryDependencies += "org.scalatest"     %% "scalatest-funspec" % "3.2.16"   % "test"
-libraryDependencies += "org.scalatestplus" %% "mockito-4-11"      % "3.2.16.0" % "test"
+libraryDependencies += "org.scalatest"     %% "scalatest"         % "3.2.19"   % Test
+libraryDependencies += "org.scalatest"     %% "scalatest-funspec" % "3.2.19"   % "test"
+libraryDependencies += "org.scalatestplus" %% "mockito-4-11"      % "3.2.18.0" % "test"
 
 pomIncludeRepository := { _ => false }
 

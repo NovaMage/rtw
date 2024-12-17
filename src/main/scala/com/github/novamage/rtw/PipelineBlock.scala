@@ -20,36 +20,26 @@ trait PipelineBlock[+A] {
 
   }
 
-  def intoWriteStage[B](
-    block: A => B
-  )(implicit operationContextProvider: OperationContextProvider): PipelineBlock[B] = {
+  def intoWriteStage[B](block: A => B)(using OperationContextProvider): PipelineBlock[B] = {
     new WritePipelineBlock(execute)(block)
   }
 
-  def intoTransformStage[B](
-    block: A => B
-  )(implicit operationContextProvider: OperationContextProvider): PipelineBlock[B] = {
+  def intoTransformStage[B](block: A => B)(using OperationContextProvider): PipelineBlock[B] = {
     new TransformPipelineBlock(execute)(block)
   }
 
-  def build[B, C](
-    implicit metadataProvider: MetadataProvider[C],
-    resultBuilder: ResultBuilder[A, C, B],
-    operationContextProvider: OperationContextProvider
-  ): B = {
+  def build[B, C](using MetadataProvider[C], ResultBuilder[A, C, B], OperationContextProvider): B = {
     buildTargetActionWithProvidersAndExecute(identity)
   }
 
-  def build[B, C, D](converter: A => B)(
-    implicit metadataProvider: MetadataProvider[D],
-    resultBuilder: ResultBuilder[B, D, C],
-    operationContextProvider: OperationContextProvider
-  ): C = {
+  def build[B, C, D](
+    converter: A => B
+  )(using MetadataProvider[D], ResultBuilder[B, D, C], OperationContextProvider): C = {
 
     buildTargetActionWithProvidersAndExecute(converter)
   }
 
-  def execute(implicit operationContextProvider: OperationContextProvider): A = {
+  def execute(using OperationContextProvider): A = {
     executeTargetActionInOperationContext {
       invokeBlock
     }
@@ -63,19 +53,18 @@ trait PipelineBlock[+A] {
     resultBuilder.build(converter(invokeBlock), metadataProvider.getMetadata)
   }
 
-  private def buildTargetActionWithProvidersAndExecute[C, B, D](converter: A => B)(
-    implicit metadataProvider: MetadataProvider[D],
-    resultBuilder: ResultBuilder[B, D, C],
-    operationContextProvider: OperationContextProvider
-  ): C = {
+  private def buildTargetActionWithProvidersAndExecute[C, B, D](
+    converter: A => B
+  )(using MetadataProvider[D], ResultBuilder[B, D, C], OperationContextProvider): C = {
     executeTargetActionInOperationContext {
-      buildTargetAction(converter, metadataProvider, resultBuilder)
+      buildTargetAction(converter, summon, summon)
     }
   }
 
+  // noinspection ScalaWeakerAccess
   protected def executeTargetActionInOperationContext[B](
     targetAction: => B
-  )(implicit operationContextProvider: OperationContextProvider): B = {
+  )(using operationContextProvider: OperationContextProvider): B = {
     if (writeEnabled) {
       operationContextProvider.withinWriteContext {
         targetAction
@@ -92,5 +81,5 @@ trait PipelineBlock[+A] {
 }
 
 object PipelineBlock {
-  implicit def asFallible[A](pipelineBlock: PipelineBlock[A]): FalliblePipelineBlock[A] = pipelineBlock.asFallible
+  given Conversion[PipelineBlock[_], FalliblePipelineBlock[_]] = _.asFallible
 }

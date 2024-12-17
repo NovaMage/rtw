@@ -2,7 +2,7 @@ package com.github.novamage.rtw
 
 trait OperationContextProvider {
 
-  implicit val operationContextProvider: OperationContextProvider = this
+  given operationContextProvider: OperationContextProvider = this
 
   def withinWriteContext[A](block: => A): A
 
